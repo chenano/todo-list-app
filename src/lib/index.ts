@@ -1,0 +1,92 @@
+// Main exports for the lib directory
+
+// Utilities
+export * from './utils';
+export * from './constants';
+
+// Error classes and utilities (selective export to avoid conflicts)
+export {
+  AppError,
+  AuthenticationError,
+  AuthorizationError,
+  SessionExpiredError,
+  NotFoundError,
+  ConflictError,
+  NetworkError,
+  TimeoutError,
+  RateLimitError,
+  DuplicateResourceError,
+  InvalidOperationError,
+  QuotaExceededError,
+  FileUploadError,
+  FileSizeError,
+  FileTypeError,
+  errorUtils,
+  errorRecovery,
+  createErrorBoundaryHandler,
+} from './errors';
+
+// Validation schemas (export schemas only, not inferred types)
+export {
+  loginSchema,
+  registerSchema,
+  listSchema,
+  taskSchema,
+  taskFiltersSchema,
+  taskSortSchema,
+  userSchema,
+  listEntitySchema,
+  taskEntitySchema,
+  listUpdateSchema,
+  taskUpdateSchema,
+  uuidSchema,
+  paginationSchema,
+  apiResponseSchema,
+  searchSchema,
+  extendedTaskFiltersSchema,
+  bulkTaskUpdateSchema,
+  bulkTaskDeleteSchema,
+  taskImportSchema,
+  listImportSchema,
+} from './validations';
+
+// Re-export types from types directory (selective to avoid conflicts)
+export type {
+  User,
+  List,
+  Task,
+  TaskFilters,
+  TaskSort,
+  LoginFormData,
+  RegisterFormData,
+  ListFormData,
+  TaskFormData,
+  ApiResponse,
+  PaginatedResponse,
+  ListWithTaskCount,
+  TaskWithList,
+  AuthUser,
+  AuthSession,
+  Priority,
+  TaskStatus,
+  SortDirection,
+  FormState,
+  ListUpdateData,
+  TaskUpdateData,
+  PaginationParams,
+  ExtendedTaskFilters,
+  UIState,
+  ListUIState,
+  TaskUIState,
+  SearchParams,
+  BulkTaskUpdate,
+  BulkTaskDelete,
+  TaskImport,
+  ListImport,
+  UseAsyncState,
+  UseFormState,
+  BaseComponentProps,
+  LoadingProps,
+  ErrorDisplayProps,
+  ConfirmDialogProps,
+} from '../types';
