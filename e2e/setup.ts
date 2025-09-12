@@ -1,16 +1,16 @@
-import { test as setup } from '@playwright/test';
+import { chromium, FullConfig } from '@playwright/test';
 
-// Global setup for all tests
-setup('global setup', async ({ page }) => {
-  // Any global setup can go here
-  // For example, setting up test data, clearing cookies, etc.
+async function globalSetup(config: FullConfig) {
+  // Global setup for all tests
+  console.log('Running global setup...');
   
-  // Clear any existing cookies/localStorage
-  await page.context().clearCookies();
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-});
+  // You can add any global setup here
+  // For example, setting up test data, starting services, etc.
+  
+  return async () => {
+    // Global teardown
+    console.log('Running global teardown...');
+  };
+}
 
-export {};
+export default globalSetup;

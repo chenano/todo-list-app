@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { MoreHorizontal, Edit, Trash2, Calendar, Clock, Check, X } from 'lucide-react';
 import { Task } from '@/lib/supabase/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,9 @@ import { PriorityBadge } from '@/components/ui/priority-select';
 import { cn } from '@/lib/utils';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
+import { useBulkSelection } from '@/contexts/BulkSelectionContext';
+import { TaskShortcuts } from '@/components/keyboard';
+import { performanceMonitor } from '@/lib/performance';
 
 interface TaskItemProps {
   task: Task;
@@ -23,27 +26,99 @@ interface TaskItemProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   className?: string;
+  allTaskIds?: string[]; // For range selection
+  enableBulkSelection?: boolean;
+  isFocused?: boolean; // For keyboard navigation
+  onFocus?: () => void;
 }
 
-export function TaskItem({
+export const TaskItem = React.memo(function TaskItem({
   task,
   onToggleComplete,
   onEdit,
   onDelete,
   className = '',
+  allTaskIds = [],
+  enableBulkSelection = false,
+  isFocused = false,
+  onFocus,
 }: TaskItemProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  
+  // Bulk selection context (only used if enableBulkSelection is true)
+  const bulkSelection = enableBulkSelection ? useBulkSelection() : null;
+  const isSelected = bulkSelection?.actions.isTaskSelected(task.id) ?? false;
+  const isSelectionMode = bulkSelection?.state.isSelectionMode ?? false;
 
-  const handleToggleComplete = async () => {
+  const handleToggleComplete = useCallback(async () => {
     if (isToggling || !onToggleComplete) return;
     
     setIsToggling(true);
+    const endMeasure = performanceMonitor.startMeasure('task-toggle-complete');
     try {
       await onToggleComplete(task.id);
     } finally {
+      endMeasure();
       setIsToggling(false);
+    }
+  }, [isToggling, onToggleComplete, task.id]);
+
+  const handleSelectionToggle = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!bulkSelection) return;
+
+    // Handle shift+click for range selection
+    if (e?.shiftKey && bulkSelection.state.lastSelectedId && allTaskIds.length > 0) {
+      bulkSelection.actions.selectRange(
+        bulkSelection.state.lastSelectedId,
+        task.id,
+        allTaskIds
+      );
+    } else {
+      bulkSelection.actions.toggleTask(task.id);
+    }
+  };
+
+  const handleCheckboxChange = () => {
+    handleSelectionToggle();
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Focus this task for keyboard navigation
+    if (onFocus) {
+      onFocus();
+    }
+    
+    // If in selection mode, clicking the card should toggle selection
+    if (isSelectionMode && bulkSelection) {
+      e.preventDefault();
+      handleSelectionToggle(e);
+    }
+  };
+
+  const handleKeyboardEdit = () => {
+    if (onEdit) {
+      onEdit(task);
+    }
+  };
+
+  const handleKeyboardDelete = () => {
+    if (onDelete) {
+      onDelete(task.id);
+    }
+  };
+
+  const handleKeyboardToggle = () => {
+    handleToggleComplete();
+  };
+
+  const handleLongPress = () => {
+    // Long press to enter selection mode and select this task
+    if (bulkSelection && !isSelectionMode) {
+      bulkSelection.actions.selectTask(task.id);
     }
   };
 
@@ -95,36 +170,52 @@ export function TaskItem({
     preventScroll: true,
   });
 
-  const formatDueDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const dueDateInfo = useMemo(() => {
+    if (!task.due_date) return null;
     
+    const date = new Date(task.due_date);
+    
+    let formattedDate: string;
     if (isToday(date)) {
-      return 'Today';
+      formattedDate = 'Today';
     } else if (isTomorrow(date)) {
-      return 'Tomorrow';
+      formattedDate = 'Tomorrow';
     } else {
-      return format(date, 'MMM d, yyyy');
+      formattedDate = format(date, 'MMM d, yyyy');
     }
-  };
-
-  const getDueDateColor = (dateString: string) => {
-    if (task.completed) return 'text-muted-foreground';
     
-    const date = new Date(dateString);
-    
-    if (isPast(date) && !isToday(date)) {
-      return 'text-destructive';
+    let color: string;
+    if (task.completed) {
+      color = 'text-muted-foreground';
+    } else if (isPast(date) && !isToday(date)) {
+      color = 'text-destructive';
     } else if (isToday(date)) {
-      return 'text-orange-600';
+      color = 'text-orange-600';
     } else if (isTomorrow(date)) {
-      return 'text-yellow-600';
+      color = 'text-yellow-600';
+    } else {
+      color = 'text-muted-foreground';
     }
     
-    return 'text-muted-foreground';
-  };
+    return { formattedDate, color };
+  }, [task.due_date, task.completed]);
+
+  const createdDate = useMemo(() => {
+    return format(new Date(task.created_at), 'MMM d');
+  }, [task.created_at]);
 
   return (
     <div className="relative">
+      {/* Keyboard shortcuts for this task when focused */}
+      {isFocused && (
+        <TaskShortcuts
+          taskId={task.id}
+          onToggleComplete={handleKeyboardToggle}
+          onEdit={handleKeyboardEdit}
+          onDelete={handleKeyboardDelete}
+        />
+      )}
+      
       {/* Swipe action indicators */}
       {swipeAction && (
         <div className={cn(
@@ -148,28 +239,48 @@ export function TaskItem({
       )}
 
       <Card 
+        ref={cardRef}
         className={cn(
           'group hover:shadow-sm transition-all duration-200 touch-pan-y',
           task.completed && 'opacity-75',
           swipeAction && 'scale-95 opacity-50',
+          isSelected && 'ring-2 ring-primary bg-primary/5',
+          isSelectionMode && 'cursor-pointer',
+          isFocused && 'ring-2 ring-blue-500 bg-blue-50/50',
           className
         )}
         {...swipeGesture}
+        onClick={handleCardClick}
+        tabIndex={isFocused ? 0 : -1}
       >
         <CardContent className="p-4 md:p-3">
         <div className="flex items-start gap-3">
-          {/* Checkbox */}
-          <div className="flex-shrink-0 mt-0.5">
-            <Checkbox
-              checked={task.completed}
-              onCheckedChange={handleToggleComplete}
-              disabled={isToggling}
-              className={cn(
-                'transition-all duration-200 h-5 w-5 md:h-4 md:w-4',
-                task.completed && 'data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600'
-              )}
-            />
-          </div>
+          {/* Selection Checkbox (shown in selection mode) */}
+          {enableBulkSelection && isSelectionMode && (
+            <div className="flex-shrink-0 mt-0.5">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={handleCheckboxChange}
+                className="h-5 w-5 md:h-4 md:w-4"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
+
+          {/* Task Completion Checkbox (hidden in selection mode) */}
+          {(!isSelectionMode || !enableBulkSelection) && (
+            <div className="flex-shrink-0 mt-0.5">
+              <Checkbox
+                checked={task.completed}
+                onCheckedChange={handleToggleComplete}
+                disabled={isToggling}
+                className={cn(
+                  'transition-all duration-200 h-5 w-5 md:h-4 md:w-4',
+                  task.completed && 'data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600'
+                )}
+              />
+            </div>
+          )}
 
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -203,22 +314,20 @@ export function TaskItem({
                   />
 
                   {/* Due Date */}
-                  {task.due_date && (
+                  {dueDateInfo && (
                     <div className={cn(
                       'flex items-center gap-1 text-xs',
-                      getDueDateColor(task.due_date)
+                      dueDateInfo.color
                     )}>
                       <Calendar className="h-3 w-3" />
-                      <span>{formatDueDate(task.due_date)}</span>
+                      <span>{dueDateInfo.formattedDate}</span>
                     </div>
                   )}
 
                   {/* Created time */}
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    <span>
-                      {format(new Date(task.created_at), 'MMM d')}
-                    </span>
+                    <span>{createdDate}</span>
                   </div>
                 </div>
               </div>
@@ -265,6 +374,6 @@ export function TaskItem({
     </Card>
     </div>
   );
-}
+});
 
 export default TaskItem;

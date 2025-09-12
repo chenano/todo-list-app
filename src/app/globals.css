@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* Light theme colors */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -24,12 +25,18 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    
+    /* Priority colors - consistent across themes */
     --priority-low: 142 76% 36%;
     --priority-medium: 48 96% 53%;
     --priority-high: 0 84% 60%;
+    
+    /* Theme transition duration */
+    --theme-transition-duration: 0.2s;
   }
 
   .dark {
+    /* Dark theme colors */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -49,9 +56,28 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --priority-low: 142 76% 36%;
-    --priority-medium: 48 96% 53%;
-    --priority-high: 0 84% 60%;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    :root {
+      --border: 0 0% 0%;
+      --ring: 0 0% 0%;
+    }
+    
+    .dark {
+      --border: 0 0% 100%;
+      --ring: 0 0% 100%;
+      --foreground: 0 0% 100%;
+      --background: 0 0% 0%;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --theme-transition-duration: 0s;
+    }
   }
 }
 
@@ -59,8 +85,19 @@
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
+    transition: background-color var(--theme-transition-duration) ease-in-out,
+                color var(--theme-transition-duration) ease-in-out;
+  }
+
+  /* Smooth transitions for theme-aware elements */
+  .theme-transition {
+    transition: background-color var(--theme-transition-duration) ease-in-out,
+                border-color var(--theme-transition-duration) ease-in-out,
+                color var(--theme-transition-duration) ease-in-out,
+                box-shadow var(--theme-transition-duration) ease-in-out;
   }
 }
 

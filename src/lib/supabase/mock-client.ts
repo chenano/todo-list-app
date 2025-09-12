@@ -42,6 +42,13 @@ export const createMockClient = () => {
         return { data: { session: currentSession }, error: null }
       },
 
+      async getUser() {
+        return { 
+          data: { user: currentSession?.user || null }, 
+          error: null 
+        }
+      },
+
       async signUp({ email, password }: { email: string; password: string }) {
         try {
           // Check if user already exists
@@ -137,18 +144,114 @@ export const createMockClient = () => {
         select: (columns = '*') => ({
           eq: (column: string, value: any) => ({
             order: (column: string, options?: any) => ({
+              single: () => ({
+                then: (resolve: any) => {
+                  // Mock single record
+                  if (table === 'lists') {
+                    const mockData = { 
+                      id: value, 
+                      name: 'Mock List', 
+                      description: 'Mock Description',
+                      user_id: currentSession?.user?.id || 'mock-user',
+                      created_at: new Date().toISOString(), 
+                      updated_at: new Date().toISOString() 
+                    }
+                    return Promise.resolve({ data: mockData, error: null }).then(resolve)
+                  }
+                  return Promise.resolve({ data: null, error: null }).then(resolve)
+                }
+              }),
               then: (resolve: any) => {
-                // Mock empty data for now
+                // Mock filtered and ordered data
+                if (table === 'lists') {
+                  const mockData = [
+                    { 
+                      id: 'mock-list-1', 
+                      name: 'My First List', 
+                      description: 'Getting started with tasks',
+                      user_id: currentSession?.user?.id || 'mock-user',
+                      created_at: new Date().toISOString(), 
+                      updated_at: new Date().toISOString(),
+                      tasks: { count: 0 }
+                    }
+                  ]
+                  return Promise.resolve({ data: mockData, error: null }).then(resolve)
+                }
                 return Promise.resolve({ data: [], error: null }).then(resolve)
               }
             }),
+            single: () => ({
+              then: (resolve: any) => {
+                // Mock single record
+                if (table === 'lists') {
+                  const mockData = { 
+                    id: value, 
+                    name: 'Mock List', 
+                    description: 'Mock Description',
+                    user_id: currentSession?.user?.id || 'mock-user',
+                    created_at: new Date().toISOString(), 
+                    updated_at: new Date().toISOString() 
+                  }
+                  return Promise.resolve({ data: mockData, error: null }).then(resolve)
+                }
+                return Promise.resolve({ data: null, error: null }).then(resolve)
+              }
+            }),
             then: (resolve: any) => {
-              // Mock empty data for now
+              // Mock filtered data
+              if (table === 'lists') {
+                const mockData = [
+                  { 
+                    id: 'mock-list-1', 
+                    name: 'My First List', 
+                    description: 'Getting started with tasks',
+                    user_id: currentSession?.user?.id || 'mock-user',
+                    created_at: new Date().toISOString(), 
+                    updated_at: new Date().toISOString(),
+                    tasks: { count: 0 }
+                  }
+                ]
+                return Promise.resolve({ data: mockData, error: null }).then(resolve)
+              }
+              return Promise.resolve({ data: [], error: null }).then(resolve)
+            }
+          }),
+          order: (column: string, options?: any) => ({
+            then: (resolve: any) => {
+              // Mock ordered data
+              if (table === 'lists') {
+                const mockData = [
+                  { 
+                    id: 'mock-list-1', 
+                    name: 'My First List', 
+                    description: 'Getting started with tasks',
+                    user_id: currentSession?.user?.id || 'mock-user',
+                    created_at: new Date().toISOString(), 
+                    updated_at: new Date().toISOString(),
+                    tasks: { count: 0 }
+                  }
+                ]
+                return Promise.resolve({ data: mockData, error: null }).then(resolve)
+              }
               return Promise.resolve({ data: [], error: null }).then(resolve)
             }
           }),
           then: (resolve: any) => {
-            // Mock empty data for now
+            // Mock data based on table and columns
+            if (table === 'lists') {
+              const mockData = [
+                { 
+                  id: 'mock-list-1', 
+                  name: 'My First List', 
+                  description: 'Getting started with tasks',
+                  user_id: currentSession?.user?.id || 'mock-user',
+                  created_at: new Date().toISOString(), 
+                  updated_at: new Date().toISOString(),
+                  tasks: { count: 0 }
+                }
+              ]
+              return Promise.resolve({ data: mockData, error: null }).then(resolve)
+            }
             return Promise.resolve({ data: [], error: null }).then(resolve)
           }
         }),
@@ -156,20 +259,38 @@ export const createMockClient = () => {
           select: (columns = '*') => ({
             single: () => ({
               then: (resolve: any) => {
-                // Mock successful insert
-                const mockData = { id: generateUserId(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+                // Mock successful insert with proper data structure
+                const mockData = { 
+                  id: generateUserId(), 
+                  ...data, 
+                  created_at: new Date().toISOString(), 
+                  updated_at: new Date().toISOString() 
+                }
+                console.log(`✅ Mock ${table} created:`, mockData)
                 return Promise.resolve({ data: mockData, error: null }).then(resolve)
               }
             }),
             then: (resolve: any) => {
               // Mock successful insert
-              const mockData = { id: generateUserId(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+              const mockData = { 
+                id: generateUserId(), 
+                ...data, 
+                created_at: new Date().toISOString(), 
+                updated_at: new Date().toISOString() 
+              }
+              console.log(`✅ Mock ${table} created:`, mockData)
               return Promise.resolve({ data: mockData, error: null }).then(resolve)
             }
           }),
           then: (resolve: any) => {
             // Mock successful insert
-            const mockData = { id: generateUserId(), ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+            const mockData = { 
+              id: generateUserId(), 
+              ...data, 
+              created_at: new Date().toISOString(), 
+              updated_at: new Date().toISOString() 
+            }
+            console.log(`✅ Mock ${table} created:`, mockData)
             return Promise.resolve({ data: mockData, error: null }).then(resolve)
           }
         }),

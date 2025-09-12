@@ -183,6 +183,40 @@ export interface SearchParams {
   list_id?: string;
 }
 
+export interface SearchResult {
+  type: 'task' | 'list';
+  item: Task | List;
+  matches: TextMatch[];
+  listName?: string;
+  score?: number;
+}
+
+export interface TextMatch {
+  field: 'title' | 'description' | 'name';
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface SearchFilters {
+  type?: 'all' | 'tasks' | 'lists';
+  priority?: 'all' | 'low' | 'medium' | 'high';
+  completed?: 'all' | 'completed' | 'incomplete';
+  dateRange?: {
+    start?: string;
+    end?: string;
+    field: 'created_at' | 'due_date';
+  };
+  listId?: string;
+}
+
+export interface SearchOptions {
+  query: string;
+  filters?: SearchFilters;
+  limit?: number;
+  includeHighlights?: boolean;
+}
+
 export interface BulkTaskUpdate {
   task_ids: string[];
   updates: TaskUpdateData;
@@ -256,4 +290,102 @@ export interface ConfirmDialogProps {
   cancelText?: string;
   variant?: 'default' | 'destructive';
   onConfirm: () => void | Promise<void>;
+}
+
+// Analytics types
+export interface ProductivityMetrics {
+  completionRate: number;
+  averageTasksPerDay: number;
+  totalTasks: number;
+  completedTasks: number;
+  priorityDistribution: PriorityDistribution;
+  timePatterns: TimePattern[];
+  streaks: StreakData;
+  trends: TrendData;
+}
+
+export interface PriorityDistribution {
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface TimePattern {
+  hour: number;
+  dayOfWeek: number;
+  completionCount: number;
+  creationCount: number;
+  date: string;
+}
+
+export interface StreakData {
+  current: number;
+  longest: number;
+  lastActivity: string | null;
+  streakDates: string[];
+}
+
+export interface TrendData {
+  daily: DailyTrend[];
+  weekly: WeeklyTrend[];
+  monthly: MonthlyTrend[];
+}
+
+export interface DailyTrend {
+  date: string;
+  completed: number;
+  created: number;
+  completionRate: number;
+}
+
+export interface WeeklyTrend {
+  weekStart: string;
+  weekEnd: string;
+  completed: number;
+  created: number;
+  completionRate: number;
+  averagePerDay: number;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  year: number;
+  completed: number;
+  created: number;
+  completionRate: number;
+  averagePerDay: number;
+}
+
+export interface AnalyticsEvent {
+  id: string;
+  type: 'task_created' | 'task_completed' | 'task_uncompleted' | 'task_deleted' | 'list_created' | 'list_deleted';
+  timestamp: string;
+  data: {
+    taskId?: string;
+    listId?: string;
+    priority?: Priority;
+    dueDate?: string | null;
+    completionTime?: number; // Time taken to complete task in milliseconds
+  };
+}
+
+export interface AnalyticsFilter {
+  dateRange: {
+    start: string;
+    end: string;
+  };
+  listIds?: string[];
+  priorities?: Priority[];
+  includeCompleted?: boolean;
+  includeIncomplete?: boolean;
+}
+
+export interface AnalyticsExport {
+  format: 'json' | 'csv';
+  data: ProductivityMetrics;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+  exportedAt: string;
 }

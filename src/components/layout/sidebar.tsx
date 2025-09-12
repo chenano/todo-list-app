@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, List, Settings, Plus } from "lucide-react"
+import { Home, List, Settings, Plus, TrendingUp, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -23,10 +23,16 @@ export function Sidebar({ className }: SidebarProps) {
       current: pathname === "/dashboard",
     },
     {
-      name: "All Lists",
-      href: "/dashboard/lists",
-      icon: List,
-      current: pathname.startsWith("/dashboard/lists"),
+      name: "Search",
+      href: "/dashboard/search",
+      icon: Search,
+      current: pathname === "/dashboard/search",
+    },
+    {
+      name: "Analytics",
+      href: "/dashboard/analytics",
+      icon: TrendingUp,
+      current: pathname === "/dashboard/analytics",
     },
   ]
 

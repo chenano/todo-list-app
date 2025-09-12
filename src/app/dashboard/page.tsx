@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import { Plus, Download, Upload } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useLists } from '@/hooks/useLists'
 import { List } from '@/lib/supabase/types'
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { ListGrid } from '@/components/lists/ListGrid'
 import { ListForm } from '@/components/lists/ListForm'
 import { DeleteListDialog } from '@/components/lists/DeleteListDialog'
+import { ExportDialog } from '@/components/ui/export-dialog'
+import { ImportDialog } from '@/components/ui/import-dialog'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -22,6 +24,8 @@ export default function DashboardPage() {
   const [editingList, setEditingList] = useState<List | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingList, setDeletingList] = useState<(List & { task_count: number }) | null>(null)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -29,6 +33,19 @@ export default function DashboardPage() {
 
   const handleCreateList = () => {
     setShowCreateForm(true)
+  }
+
+  const handleExport = () => {
+    setShowExportDialog(true)
+  }
+
+  const handleImport = () => {
+    setShowImportDialog(true)
+  }
+
+  const handleImportComplete = () => {
+    // Refresh the lists after import
+    window.location.reload()
   }
 
   // Check for create list action from URL params (from mobile nav)
@@ -42,6 +59,28 @@ export default function DashboardPage() {
       window.history.replaceState({}, '', newUrl.toString())
     }
   }, [])
+
+  // Listen for keyboard events
+  useEffect(() => {
+    const handleKeyboardNewTask = () => {
+      setShowCreateForm(true)
+    }
+
+    const handleKeyboardNavigateList = (event: CustomEvent) => {
+      const { listIndex } = event.detail
+      if (lists[listIndex]) {
+        router.push(`/dashboard/lists/${lists[listIndex].id}`)
+      }
+    }
+
+    window.addEventListener('keyboard-new-task', handleKeyboardNewTask)
+    window.addEventListener('keyboard-navigate-list', handleKeyboardNavigateList as EventListener)
+
+    return () => {
+      window.removeEventListener('keyboard-new-task', handleKeyboardNewTask)
+      window.removeEventListener('keyboard-navigate-list', handleKeyboardNavigateList as EventListener)
+    }
+  }, [lists, router])
 
   const handleEditList = (list: List) => {
     setEditingList(list)
@@ -109,6 +148,14 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={handleImport} className="gap-2">
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              <Button variant="outline" onClick={handleExport} className="gap-2">
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
               <Button onClick={handleCreateList} className="gap-2">
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">Create List</span>
@@ -160,6 +207,20 @@ export default function DashboardPage() {
         onOpenChange={handleCloseDeleteDialog}
         list={deletingList}
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        lists={lists}
+      />
+
+      {/* Import Dialog */}
+      <ImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImportComplete={handleImportComplete}
       />
     </div>
   )

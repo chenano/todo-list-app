@@ -72,3 +72,12 @@ export {
   LoadingOverlay,
   ProgressiveLoading
 } from "./skeleton-loaders"
+
+// Search components
+export { SearchBar, SearchShortcutHint } from "./search-bar"
+export { SearchResults, QuickSearchResults } from "./search-results"
+export { SearchFiltersComponent } from "./search-filters"
+export { SearchDialog, useSearchDialog } from "./search-dialog"
+
+// Theme components
+export { ThemeToggle, SimpleThemeToggle } from "./theme-toggle"

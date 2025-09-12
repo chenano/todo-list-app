@@ -16,12 +16,15 @@ export class TaskService {
   async getTasksByListId(
     listId: string,
     filters?: TaskFilters,
-    sort?: TaskSort
-  ): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    sort?: TaskSort,
+    pagination?: { page?: number; pageSize?: number }
+  ): Promise<{ data: Task[] | null; error: DatabaseError | null; hasMore?: boolean; totalCount?: number }> {
     try {
+      // Selective field loading for better performance
+      const fields = 'id,list_id,user_id,title,description,completed,priority,due_date,created_at,updated_at';
       let query = this.supabase
         .from('tasks')
-        .select('*')
+        .select(fields, { count: 'exact' })
         .eq('list_id', listId);
 
       // Apply filters
@@ -49,13 +52,27 @@ export class TaskService {
         query = query.order('created_at', { ascending: false });
       }
 
-      const { data, error } = await query;
+      // Apply pagination
+      if (pagination?.page && pagination?.pageSize) {
+        const from = (pagination.page - 1) * pagination.pageSize;
+        const to = from + pagination.pageSize - 1;
+        query = query.range(from, to);
+      }
+
+      const { data, error, count } = await query;
 
       if (error) {
         return { data: null, error: { message: error.message, code: error.code } };
       }
 
-      return { data, error: null };
+      // Calculate if there are more pages
+      let hasMore = false;
+      if (pagination?.page && pagination?.pageSize && count !== null) {
+        const totalPages = Math.ceil(count / pagination.pageSize);
+        hasMore = pagination.page < totalPages;
+      }
+
+      return { data, error: null, hasMore, totalCount: count || undefined };
     } catch (error) {
       return {
         data: null,
@@ -69,12 +86,15 @@ export class TaskService {
    */
   async getAllUserTasks(
     filters?: TaskFilters,
-    sort?: TaskSort
-  ): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    sort?: TaskSort,
+    pagination?: { page?: number; pageSize?: number }
+  ): Promise<{ data: Task[] | null; error: DatabaseError | null; hasMore?: boolean; totalCount?: number }> {
     try {
+      // Selective field loading for better performance
+      const fields = 'id,list_id,user_id,title,description,completed,priority,due_date,created_at,updated_at';
       let query = this.supabase
         .from('tasks')
-        .select('*');
+        .select(fields, { count: 'exact' });
 
       // Apply filters
       if (filters?.status === 'completed') {
@@ -101,13 +121,27 @@ export class TaskService {
         query = query.order('created_at', { ascending: false });
       }
 
-      const { data, error } = await query;
+      // Apply pagination
+      if (pagination?.page && pagination?.pageSize) {
+        const from = (pagination.page - 1) * pagination.pageSize;
+        const to = from + pagination.pageSize - 1;
+        query = query.range(from, to);
+      }
+
+      const { data, error, count } = await query;
 
       if (error) {
         return { data: null, error: { message: error.message, code: error.code } };
       }
 
-      return { data, error: null };
+      // Calculate if there are more pages
+      let hasMore = false;
+      if (pagination?.page && pagination?.pageSize && count !== null) {
+        const totalPages = Math.ceil(count / pagination.pageSize);
+        hasMore = pagination.page < totalPages;
+      }
+
+      return { data, error: null, hasMore, totalCount: count || undefined };
     } catch (error) {
       return {
         data: null,
@@ -121,9 +155,10 @@ export class TaskService {
    */
   async getTaskById(id: string): Promise<{ data: Task | null; error: DatabaseError | null }> {
     try {
+      const fields = 'id,list_id,user_id,title,description,completed,priority,due_date,created_at,updated_at';
       const { data, error } = await this.supabase
         .from('tasks')
-        .select('*')
+        .select(fields)
         .eq('id', id)
         .single();
 
@@ -282,9 +317,10 @@ export class TaskService {
     try {
       const today = new Date().toISOString().split('T')[0];
       
+      const fields = 'id,list_id,user_id,title,description,completed,priority,due_date,created_at,updated_at';
       const { data, error } = await this.supabase
         .from('tasks')
-        .select('*')
+        .select(fields)
         .lt('due_date', today)
         .eq('completed', false)
         .order('due_date', { ascending: true });
@@ -350,6 +386,161 @@ export class TaskService {
   }
 
   /**
+   * Bulk complete tasks
+   */
+  async bulkCompleteTask(taskIds: string[]): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('tasks')
+        .update({ completed: true, updated_at: new Date().toISOString() })
+        .in('id', taskIds)
+        .select();
+
+      if (error) {
+        return {
+          data: null,
+          error: { message: error.message, code: error.code },
+        };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: 'Failed to complete tasks', code: '500' },
+      };
+    }
+  }
+
+  /**
+   * Bulk uncomplete tasks
+   */
+  async bulkUncompleteTask(taskIds: string[]): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('tasks')
+        .update({ completed: false, updated_at: new Date().toISOString() })
+        .in('id', taskIds)
+        .select();
+
+      if (error) {
+        return {
+          data: null,
+          error: { message: error.message, code: error.code },
+        };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: 'Failed to uncomplete tasks', code: '500' },
+      };
+    }
+  }
+
+  /**
+   * Bulk delete tasks
+   */
+  async bulkDeleteTasks(taskIds: string[]): Promise<{ error: DatabaseError | null }> {
+    try {
+      const { error } = await this.supabase
+        .from('tasks')
+        .delete()
+        .in('id', taskIds);
+
+      if (error) {
+        return { error: { message: error.message, code: error.code } };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error: { message: 'Failed to delete tasks', code: '500' } };
+    }
+  }
+
+  /**
+   * Bulk move tasks to a different list
+   */
+  async bulkMoveTasks(taskIds: string[], targetListId: string): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('tasks')
+        .update({ list_id: targetListId, updated_at: new Date().toISOString() })
+        .in('id', taskIds)
+        .select();
+
+      if (error) {
+        return {
+          data: null,
+          error: { message: error.message, code: error.code },
+        };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: 'Failed to move tasks', code: '500' },
+      };
+    }
+  }
+
+  /**
+   * Bulk update task priority
+   */
+  async bulkUpdateTaskPriority(taskIds: string[], priority: 'low' | 'medium' | 'high'): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('tasks')
+        .update({ priority, updated_at: new Date().toISOString() })
+        .in('id', taskIds)
+        .select();
+
+      if (error) {
+        return {
+          data: null,
+          error: { message: error.message, code: error.code },
+        };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: 'Failed to update task priority', code: '500' },
+      };
+    }
+  }
+
+  /**
+   * Bulk update task due date
+   */
+  async bulkUpdateTaskDueDate(taskIds: string[], dueDate: string | null): Promise<{ data: Task[] | null; error: DatabaseError | null }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('tasks')
+        .update({ due_date: dueDate, updated_at: new Date().toISOString() })
+        .in('id', taskIds)
+        .select();
+
+      if (error) {
+        return {
+          data: null,
+          error: { message: error.message, code: error.code },
+        };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: 'Failed to update task due date', code: '500' },
+      };
+    }
+  }
+
+  /**
    * Subscribe to real-time task updates for a specific list
    */
   subscribeToTaskUpdates(
@@ -405,6 +596,12 @@ export const {
   getOverdueTasks,
   getTaskCountByListId,
   getCompletedTaskCountByListId,
+  bulkCompleteTask,
+  bulkUncompleteTask,
+  bulkDeleteTasks,
+  bulkMoveTasks,
+  bulkUpdateTaskPriority,
+  bulkUpdateTaskDueDate,
   subscribeToTaskUpdates,
   subscribeToAllTaskUpdates,
 } = taskService;

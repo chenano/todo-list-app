@@ -52,9 +52,9 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         priority: {
-          low: "hsl(142 76% 36%)",
-          medium: "hsl(48 96% 53%)",
-          high: "hsl(0 84% 60%)",
+          low: "hsl(var(--priority-low))",
+          medium: "hsl(var(--priority-medium))",
+          high: "hsl(var(--priority-high))",
         },
       },
       borderRadius: {
@@ -75,6 +75,9 @@ module.exports = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      transitionDuration: {
+        'theme': 'var(--theme-transition-duration)',
       },
     },
   },

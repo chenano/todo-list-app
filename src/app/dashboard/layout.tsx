@@ -1,5 +1,6 @@
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppLayout } from '@/components/layout'
+import { BulkSelectionProvider } from '@/contexts/BulkSelectionContext'
 
 export default function DashboardLayout({
   children,
@@ -8,9 +9,11 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <AppLayout>
-        {children}
-      </AppLayout>
+      <BulkSelectionProvider>
+        <AppLayout>
+          {children}
+        </AppLayout>
+      </BulkSelectionProvider>
     </AuthGuard>
   )
 }

@@ -14,7 +14,11 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [
+    ['html'],
+    ['json', { outputFile: 'test-results/results.json' }],
+    ['junit', { outputFile: 'test-results/results.xml' }],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -22,6 +26,12 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+
+    /* Take screenshot on failure */
+    screenshot: 'only-on-failure',
+
+    /* Record video on failure */
+    video: 'retain-on-failure',
   },
 
   /* Configure projects for major browsers */
@@ -42,24 +52,55 @@ export default defineConfig({
     },
 
     /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
 
     /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
+    {
+      name: 'Microsoft Edge',
+      use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    },
+    {
+      name: 'Google Chrome',
+      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    },
+
+    /* Performance testing project */
+    {
+      name: 'performance',
+      testMatch: '**/performance-benchmarks.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      timeout: 60000, // Longer timeout for performance tests
+    },
+
+    /* Visual regression testing project */
+    {
+      name: 'visual-regression',
+      testMatch: '**/visual-regression.spec.ts',
+      use: { 
+        ...devices['Desktop Chrome'],
+      },
+    },
+
+    /* Accessibility testing project */
+    {
+      name: 'accessibility',
+      testMatch: '**/accessibility-automation.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    /* Cross-browser testing project */
+    {
+      name: 'cross-browser',
+      testMatch: '**/cross-browser.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 
   /* Run your local dev server before starting the tests */
@@ -67,5 +108,25 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000, // 2 minutes
   },
+
+  /* Global test timeout */
+  timeout: 30 * 1000, // 30 seconds
+
+  /* Expect timeout for assertions */
+  expect: {
+    timeout: 10 * 1000, // 10 seconds
+    // Animation handling
+    toHaveScreenshot: {
+      threshold: 0.2,
+      animations: 'disabled',
+    },
+  },
+
+  /* Test output directory */
+  outputDir: 'test-results/',
+
+  /* Global setup and teardown */
+  globalSetup: require.resolve('./e2e/setup.ts'),
 });

@@ -3,6 +3,12 @@ import { Task } from '../lib/supabase/types';
 import { TaskFormData, TaskUpdateData, TaskFilters, TaskSort } from '../lib/validations';
 import { taskService } from '../lib/tasks';
 import { DatabaseError } from '../types';
+import { 
+  recordTaskCreated, 
+  recordTaskCompleted, 
+  recordTaskUncompleted, 
+  recordTaskDeleted 
+} from '@/lib/analytics';
 
 export interface UseTasksState {
   tasks: Task[];
@@ -18,6 +24,13 @@ export interface UseTasksActions {
   deleteTask: (id: string) => Promise<boolean>;
   setFilters: (filters: TaskFilters) => void;
   setSort: (sort: TaskSort) => void;
+  // Bulk operations
+  bulkComplete: (taskIds: string[]) => Promise<Task[] | null>;
+  bulkUncomplete: (taskIds: string[]) => Promise<Task[] | null>;
+  bulkDelete: (taskIds: string[]) => Promise<boolean>;
+  bulkMove: (taskIds: string[], targetListId: string) => Promise<Task[] | null>;
+  bulkUpdatePriority: (taskIds: string[], priority: 'low' | 'medium' | 'high') => Promise<Task[] | null>;
+  bulkUpdateDueDate: (taskIds: string[], dueDate: string | null) => Promise<Task[] | null>;
 }
 
 export interface UseTasksReturn extends UseTasksState, UseTasksActions {
@@ -116,6 +129,10 @@ export function useTasks(listId: string): UseTasksReturn {
           task.id === tempId ? newTask : task
         ),
       }));
+      
+      // Record analytics event
+      recordTaskCreated(newTask);
+      
       return newTask;
     }
 
@@ -167,6 +184,16 @@ export function useTasks(listId: string): UseTasksReturn {
           task.id === id ? updatedTask : task
         ),
       }));
+      
+      // Record analytics event for completion status changes
+      if (originalTask && originalTask.completed !== updatedTask.completed) {
+        if (updatedTask.completed) {
+          recordTaskCompleted(updatedTask);
+        } else {
+          recordTaskUncompleted(updatedTask);
+        }
+      }
+      
       return updatedTask;
     }
 
@@ -215,6 +242,14 @@ export function useTasks(listId: string): UseTasksReturn {
           task.id === id ? updatedTask : task
         ),
       }));
+      
+      // Record analytics event
+      if (updatedTask.completed) {
+        recordTaskCompleted(updatedTask);
+      } else {
+        recordTaskUncompleted(updatedTask);
+      }
+      
       return updatedTask;
     }
 
@@ -247,7 +282,275 @@ export function useTasks(listId: string): UseTasksReturn {
       return false;
     }
 
+    // Record analytics event
+    recordTaskDeleted(originalTask);
+
     return true;
+  }, [state.tasks]);
+
+  // Bulk complete tasks with optimistic update
+  const bulkComplete = useCallback(async (taskIds: string[]): Promise<Task[] | null> => {
+    const originalTasks = state.tasks.filter(task => taskIds.includes(task.id));
+    if (originalTasks.length === 0) return null;
+
+    // Optimistic update
+    const optimisticTasks = originalTasks.map(task => ({
+      ...task,
+      completed: true,
+      updated_at: new Date().toISOString(),
+    }));
+
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task => 
+        taskIds.includes(task.id) 
+          ? { ...task, completed: true, updated_at: new Date().toISOString() }
+          : task
+      ),
+      error: null,
+    }));
+
+    const { data: updatedTasks, error } = await taskService.bulkCompleteTask(taskIds);
+
+    if (error) {
+      // Rollback optimistic update
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const original = originalTasks.find(orig => orig.id === task.id);
+          return original || task;
+        }),
+        error,
+      }));
+      return null;
+    }
+
+    if (updatedTasks) {
+      // Update with real data from server
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const updated = updatedTasks.find(updated => updated.id === task.id);
+          return updated || task;
+        }),
+      }));
+      return updatedTasks;
+    }
+
+    return null;
+  }, [state.tasks]);
+
+  // Bulk uncomplete tasks with optimistic update
+  const bulkUncomplete = useCallback(async (taskIds: string[]): Promise<Task[] | null> => {
+    const originalTasks = state.tasks.filter(task => taskIds.includes(task.id));
+    if (originalTasks.length === 0) return null;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task => 
+        taskIds.includes(task.id) 
+          ? { ...task, completed: false, updated_at: new Date().toISOString() }
+          : task
+      ),
+      error: null,
+    }));
+
+    const { data: updatedTasks, error } = await taskService.bulkUncompleteTask(taskIds);
+
+    if (error) {
+      // Rollback optimistic update
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const original = originalTasks.find(orig => orig.id === task.id);
+          return original || task;
+        }),
+        error,
+      }));
+      return null;
+    }
+
+    if (updatedTasks) {
+      // Update with real data from server
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const updated = updatedTasks.find(updated => updated.id === task.id);
+          return updated || task;
+        }),
+      }));
+      return updatedTasks;
+    }
+
+    return null;
+  }, [state.tasks]);
+
+  // Bulk delete tasks with optimistic update
+  const bulkDelete = useCallback(async (taskIds: string[]): Promise<boolean> => {
+    const originalTasks = state.tasks.filter(task => taskIds.includes(task.id));
+    if (originalTasks.length === 0) return false;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.filter(task => !taskIds.includes(task.id)),
+      error: null,
+    }));
+
+    const { error } = await taskService.bulkDeleteTasks(taskIds);
+
+    if (error) {
+      // Rollback optimistic update
+      setState(prev => ({
+        ...prev,
+        tasks: [...prev.tasks, ...originalTasks].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ),
+        error,
+      }));
+      return false;
+    }
+
+    return true;
+  }, [state.tasks]);
+
+  // Bulk move tasks with optimistic update
+  const bulkMove = useCallback(async (taskIds: string[], targetListId: string): Promise<Task[] | null> => {
+    const originalTasks = state.tasks.filter(task => taskIds.includes(task.id));
+    if (originalTasks.length === 0) return null;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task => 
+        taskIds.includes(task.id) 
+          ? { ...task, list_id: targetListId, updated_at: new Date().toISOString() }
+          : task
+      ),
+      error: null,
+    }));
+
+    const { data: updatedTasks, error } = await taskService.bulkMoveTasks(taskIds, targetListId);
+
+    if (error) {
+      // Rollback optimistic update
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const original = originalTasks.find(orig => orig.id === task.id);
+          return original || task;
+        }),
+        error,
+      }));
+      return null;
+    }
+
+    if (updatedTasks) {
+      // Update with real data from server
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const updated = updatedTasks.find(updated => updated.id === task.id);
+          return updated || task;
+        }),
+      }));
+      return updatedTasks;
+    }
+
+    return null;
+  }, [state.tasks]);
+
+  // Bulk update priority with optimistic update
+  const bulkUpdatePriority = useCallback(async (taskIds: string[], priority: 'low' | 'medium' | 'high'): Promise<Task[] | null> => {
+    const originalTasks = state.tasks.filter(task => taskIds.includes(task.id));
+    if (originalTasks.length === 0) return null;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task => 
+        taskIds.includes(task.id) 
+          ? { ...task, priority, updated_at: new Date().toISOString() }
+          : task
+      ),
+      error: null,
+    }));
+
+    const { data: updatedTasks, error } = await taskService.bulkUpdateTaskPriority(taskIds, priority);
+
+    if (error) {
+      // Rollback optimistic update
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const original = originalTasks.find(orig => orig.id === task.id);
+          return original || task;
+        }),
+        error,
+      }));
+      return null;
+    }
+
+    if (updatedTasks) {
+      // Update with real data from server
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const updated = updatedTasks.find(updated => updated.id === task.id);
+          return updated || task;
+        }),
+      }));
+      return updatedTasks;
+    }
+
+    return null;
+  }, [state.tasks]);
+
+  // Bulk update due date with optimistic update
+  const bulkUpdateDueDate = useCallback(async (taskIds: string[], dueDate: string | null): Promise<Task[] | null> => {
+    const originalTasks = state.tasks.filter(task => taskIds.includes(task.id));
+    if (originalTasks.length === 0) return null;
+
+    // Optimistic update
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(task => 
+        taskIds.includes(task.id) 
+          ? { ...task, due_date: dueDate, updated_at: new Date().toISOString() }
+          : task
+      ),
+      error: null,
+    }));
+
+    const { data: updatedTasks, error } = await taskService.bulkUpdateTaskDueDate(taskIds, dueDate);
+
+    if (error) {
+      // Rollback optimistic update
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const original = originalTasks.find(orig => orig.id === task.id);
+          return original || task;
+        }),
+        error,
+      }));
+      return null;
+    }
+
+    if (updatedTasks) {
+      // Update with real data from server
+      setState(prev => ({
+        ...prev,
+        tasks: prev.tasks.map(task => {
+          const updated = updatedTasks.find(updated => updated.id === task.id);
+          return updated || task;
+        }),
+      }));
+      return updatedTasks;
+    }
+
+    return null;
   }, [state.tasks]);
 
   // Set up real-time subscription
@@ -310,6 +613,12 @@ export function useTasks(listId: string): UseTasksReturn {
     deleteTask,
     setFilters,
     setSort,
+    bulkComplete,
+    bulkUncomplete,
+    bulkDelete,
+    bulkMove,
+    bulkUpdatePriority,
+    bulkUpdateDueDate,
   };
 }
 

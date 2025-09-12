@@ -3,6 +3,8 @@
 import { ReactNode } from "react"
 import { Header } from "./header"
 import { Sidebar } from "./sidebar"
+import { KeyboardShortcutHelp } from "@/components/ui/keyboard-shortcut-help"
+import { GlobalShortcuts } from "@/components/keyboard"
 
 interface AppLayoutProps {
   children: ReactNode
@@ -11,6 +13,9 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
+      {/* Global keyboard shortcuts */}
+      <GlobalShortcuts />
+      
       {/* Sidebar for desktop */}
       <Sidebar />
       
@@ -24,6 +29,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+      
+      {/* Keyboard shortcut help overlay */}
+      <KeyboardShortcutHelp />
     </div>
   )
 }

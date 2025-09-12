@@ -29,5 +29,8 @@ export { useSwipeGesture } from './useSwipeGesture'
 export { useTaskFilters } from './useTaskFilters'
 export { useTaskFiltersURL } from './useTaskFiltersURL'
 
+// Search hooks
+export { useSearch, useSearchKeyboard, useSearchAnalytics } from './useSearch'
+
 // Re-export auth context
 export { useAuthContext, AuthProvider } from '@/contexts/AuthContext'

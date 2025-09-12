@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Task } from '@/lib/supabase/types';
+import { Task } from '@/types';
 import { TaskFormData, taskSchema } from '@/lib/validations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { FormShortcuts } from '@/components/keyboard';
 
 interface TaskFormProps {
   open: boolean;
@@ -106,6 +107,10 @@ export function TaskForm({
     }
   };
 
+  const handleKeyboardSave = () => {
+    handleSubmit(handleFormSubmit)();
+  };
+
   const handleDateChange = (date: Date | undefined) => {
     setValue('due_date', date ? date.toISOString().split('T')[0] : '');
   };
@@ -129,6 +134,16 @@ export function TaskForm({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
+        {/* Form keyboard shortcuts */}
+        {open && (
+          <FormShortcuts
+            onSave={handleKeyboardSave}
+            onCancel={handleCancel}
+            canSave={!isSubmitting && !loading}
+            canCancel={!isSubmitting}
+          />
+        )}
+        
         <DialogHeader>
           <DialogTitle>{getDialogTitle()}</DialogTitle>
           <DialogDescription>

@@ -3,6 +3,7 @@ import { List } from '../lib/supabase/types';
 import { ListFormData, ListUpdateData } from '../lib/validations';
 import { listService } from '../lib/lists';
 import { DatabaseError } from '../types';
+import { recordListCreated, recordListDeleted } from '@/lib/analytics';
 
 export interface UseListsState {
   lists: (List & { task_count: number })[];
@@ -99,6 +100,10 @@ export function useLists(): UseListsReturn {
             : list
         ),
       }));
+      
+      // Record analytics event
+      recordListCreated(newList);
+      
       return newList;
     }
 
@@ -183,6 +188,9 @@ export function useLists(): UseListsReturn {
       }));
       return false;
     }
+
+    // Record analytics event
+    recordListDeleted(originalList);
 
     return true;
   }, [state.lists]);

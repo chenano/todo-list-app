@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Settings } from 'lucide-react'
-import { useList } from '@/hooks/useLists'
+import { useList, useLists } from '@/hooks/useLists'
 import { useTasks } from '@/hooks/useTasks'
 import { useTaskFiltersURL } from '@/hooks/useTaskFiltersURL'
 import { Task } from '@/lib/supabase/types'
@@ -22,6 +22,7 @@ export default function ListPage() {
   const listId = params.id as string
   
   const { list, loading: listLoading, error: listError } = useList(listId)
+  const { lists } = useLists() // Get all lists for bulk move functionality
   const { 
     tasks, 
     loading: tasksLoading, 
@@ -29,7 +30,13 @@ export default function ListPage() {
     createTask, 
     updateTask, 
     toggleCompletion, 
-    deleteTask 
+    deleteTask,
+    bulkComplete,
+    bulkUncomplete,
+    bulkDelete,
+    bulkMove,
+    bulkUpdatePriority,
+    bulkUpdateDueDate,
   } = useTasks(listId)
   
   // Filter and sort state with URL persistence
@@ -234,6 +241,14 @@ export default function ListPage() {
               compactFilters={false}
               emptyMessage="No tasks in this list"
               emptyDescription="Add your first task to get started with organizing your work."
+              enableBulkSelection={true}
+              availableLists={lists.filter(l => l.id !== listId).map(l => ({ id: l.id, name: l.name }))}
+              onBulkComplete={bulkComplete}
+              onBulkUncomplete={bulkUncomplete}
+              onBulkDelete={bulkDelete}
+              onBulkMove={bulkMove}
+              onBulkUpdatePriority={bulkUpdatePriority}
+              onBulkUpdateDueDate={bulkUpdateDueDate}
             />
           </CardContent>
         </Card>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The To-Do List application will be built as a modern web application using Next.js 14 with the App Router, TypeScript for type safety, and Supabase for backend services. The application follows a component-based architecture with clear separation of concerns between UI components, data access layers, and business logic.
+The enhanced To-Do List application builds upon the existing foundation to provide advanced productivity features including search, bulk operations, theming, keyboard shortcuts, performance optimizations, import/export, offline support, and analytics. The application maintains its modern web architecture while adding sophisticated capabilities for power users and improved accessibility.
 
 ### Technology Stack
 
@@ -337,3 +337,304 @@ const createMockTask = () => ({ ... });
 - **Loading States**: Skeleton screens and loading indicators
 - **Optimistic Updates**: Immediate UI feedback for better perceived performance
 - **Progressive Enhancement**: Core functionality works without JavaScript
+
+## Advanced Features Architecture
+
+### Search System
+
+#### Full-Text Search Implementation
+```typescript
+interface SearchState {
+  query: string;
+  results: SearchResult[];
+  loading: boolean;
+  filters: SearchFilters;
+}
+
+interface SearchResult {
+  type: 'task' | 'list';
+  item: Task | List;
+  matches: TextMatch[];
+  listName?: string;
+}
+
+interface TextMatch {
+  field: 'title' | 'description';
+  start: number;
+  end: number;
+}
+```
+
+#### Search Architecture
+- **Client-side Search**: For immediate results using Fuse.js for fuzzy matching
+- **Server-side Search**: Supabase full-text search for comprehensive results
+- **Search Indexing**: PostgreSQL GIN indexes for text search performance
+- **Debounced Queries**: 300ms debounce to prevent excessive API calls
+
+### Bulk Operations System
+
+#### Multi-Selection State Management
+```typescript
+interface BulkOperationState {
+  selectedTasks: Set<string>;
+  operation: BulkOperation | null;
+  progress: OperationProgress;
+}
+
+interface BulkOperation {
+  type: 'complete' | 'delete' | 'move' | 'updatePriority' | 'updateDueDate';
+  payload: any;
+  taskIds: string[];
+}
+
+interface OperationProgress {
+  total: number;
+  completed: number;
+  errors: string[];
+}
+```
+
+#### Bulk Operation Architecture
+- **Optimistic Updates**: Immediate UI feedback with rollback on failure
+- **Batch Processing**: Process operations in chunks to prevent timeout
+- **Progress Tracking**: Real-time progress indicators for long operations
+- **Error Handling**: Partial success handling with detailed error reporting
+
+### Theme System
+
+#### Theme Architecture
+```typescript
+interface ThemeConfig {
+  mode: 'light' | 'dark' | 'system';
+  customColors?: CustomColorScheme;
+  accessibility: AccessibilitySettings;
+}
+
+interface CustomColorScheme {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
+interface AccessibilitySettings {
+  highContrast: boolean;
+  reducedMotion: boolean;
+  fontSize: 'small' | 'medium' | 'large';
+}
+```
+
+#### Theme Implementation
+- **CSS Variables**: Dynamic theme switching using CSS custom properties
+- **System Detection**: Automatic detection of OS theme preference
+- **Persistence**: Theme preferences stored in localStorage
+- **Smooth Transitions**: Animated theme transitions for better UX
+
+### Keyboard Shortcuts System
+
+#### Shortcut Management
+```typescript
+interface ShortcutConfig {
+  key: string;
+  modifiers: ('ctrl' | 'alt' | 'shift' | 'meta')[];
+  action: ShortcutAction;
+  context?: 'global' | 'list' | 'task' | 'form';
+}
+
+interface ShortcutAction {
+  type: string;
+  handler: (context?: any) => void;
+  description: string;
+}
+```
+
+#### Keyboard Navigation Architecture
+- **Global Shortcuts**: Application-wide shortcuts (Ctrl+N, Ctrl+S)
+- **Context Shortcuts**: Context-specific shortcuts (Space for task toggle)
+- **Focus Management**: Proper focus handling for accessibility
+- **Help System**: Discoverable shortcut help with tooltips
+
+### Performance Optimization
+
+#### Virtual Scrolling Implementation
+```typescript
+interface VirtualScrollConfig {
+  itemHeight: number;
+  containerHeight: number;
+  overscan: number;
+  threshold: number; // When to enable virtual scrolling
+}
+
+interface VirtualScrollState {
+  startIndex: number;
+  endIndex: number;
+  scrollTop: number;
+  totalHeight: number;
+}
+```
+
+#### Performance Architecture
+- **Virtual Scrolling**: react-window for lists with 100+ items
+- **Pagination**: Server-side pagination with infinite scroll
+- **Query Optimization**: Selective field loading and proper indexing
+- **Code Splitting**: Dynamic imports for heavy components
+- **Memoization**: React.memo and useMemo for expensive computations
+
+### Import/Export System
+
+#### Data Format Support
+```typescript
+interface ExportFormat {
+  type: 'json' | 'csv' | 'markdown';
+  options: ExportOptions;
+}
+
+interface ImportFormat {
+  type: 'json' | 'csv' | 'todoist' | 'any-do';
+  validator: (data: any) => ValidationResult;
+  transformer: (data: any) => ImportData;
+}
+
+interface ImportData {
+  lists: Partial<List>[];
+  tasks: Partial<Task>[];
+  metadata: ImportMetadata;
+}
+```
+
+#### Import/Export Architecture
+- **Format Detection**: Automatic detection of import file format
+- **Data Validation**: Comprehensive validation before import
+- **Preview System**: Show import preview before confirmation
+- **Progress Tracking**: Real-time progress for large imports/exports
+- **Error Recovery**: Detailed error reporting and partial import support
+
+### Offline Support System
+
+#### Offline Architecture
+```typescript
+interface OfflineState {
+  isOnline: boolean;
+  queuedOperations: QueuedOperation[];
+  syncStatus: SyncStatus;
+  conflictResolution: ConflictResolution[];
+}
+
+interface QueuedOperation {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  table: 'lists' | 'tasks';
+  data: any;
+  timestamp: number;
+}
+
+interface SyncStatus {
+  lastSync: number;
+  pendingOperations: number;
+  syncInProgress: boolean;
+}
+```
+
+#### Offline Implementation
+- **Service Worker**: Cache application shell and data
+- **IndexedDB**: Local storage for offline data
+- **Operation Queue**: Queue operations when offline
+- **Conflict Resolution**: Handle conflicts when syncing
+- **Background Sync**: Automatic sync when connection restored
+
+### Analytics System
+
+#### Analytics Data Model
+```typescript
+interface ProductivityMetrics {
+  completionRate: number;
+  averageTasksPerDay: number;
+  priorityDistribution: PriorityStats;
+  timePatterns: TimePattern[];
+  streaks: StreakData;
+}
+
+interface TimePattern {
+  hour: number;
+  dayOfWeek: number;
+  completionCount: number;
+  creationCount: number;
+}
+
+interface StreakData {
+  current: number;
+  longest: number;
+  lastActivity: string;
+}
+```
+
+#### Analytics Architecture
+- **Local Storage**: Privacy-first analytics stored locally
+- **Data Aggregation**: Real-time calculation of metrics
+- **Visualization**: Charts using recharts or similar library
+- **Export**: Allow users to export their analytics data
+- **Privacy**: No external analytics tracking
+
+### Enhanced Component Architecture
+
+#### New Advanced Components
+- `SearchBar`: Global search with autocomplete and filters
+- `BulkActionBar`: Multi-select operations interface
+- `ThemeToggle`: Theme switching with system detection
+- `ShortcutHelp`: Discoverable keyboard shortcuts
+- `VirtualTaskList`: Performance-optimized task list
+- `ImportExportDialog`: Data import/export interface
+- `OfflineIndicator`: Connection status and sync progress
+- `AnalyticsDashboard`: Productivity insights and charts
+
+#### Enhanced Existing Components
+- `TaskList`: Add virtual scrolling and bulk selection
+- `TaskItem`: Add keyboard navigation and selection state
+- `Header`: Add search bar and theme toggle
+- `Sidebar`: Add keyboard navigation and shortcuts
+- `TaskForm`: Add keyboard shortcuts and improved UX
+
+### Database Schema Enhancements
+
+#### Search Optimization
+```sql
+-- Full-text search indexes
+CREATE INDEX idx_tasks_search ON tasks USING GIN(to_tsvector('english', title || ' ' || COALESCE(description, '')));
+CREATE INDEX idx_lists_search ON lists USING GIN(to_tsvector('english', name || ' ' || COALESCE(description, '')));
+
+-- Performance indexes for analytics
+CREATE INDEX idx_tasks_completed_date ON tasks(completed, updated_at) WHERE completed = true;
+CREATE INDEX idx_tasks_created_date ON tasks(created_at);
+CREATE INDEX idx_tasks_priority_status ON tasks(priority, completed);
+```
+
+#### User Preferences Table
+```sql
+CREATE TABLE user_preferences (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  theme_mode TEXT CHECK (theme_mode IN ('light', 'dark', 'system')) DEFAULT 'system',
+  custom_colors JSONB,
+  accessibility_settings JSONB,
+  keyboard_shortcuts JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### Security Enhancements
+
+#### Advanced Security Measures
+- **Rate Limiting**: Prevent abuse of search and bulk operations
+- **Input Sanitization**: Enhanced validation for import data
+- **File Upload Security**: Secure handling of import files
+- **Privacy Protection**: Local-only analytics and preferences
+
+### Testing Strategy for Advanced Features
+
+#### Additional Testing Requirements
+- **Search Performance**: Test search with large datasets
+- **Bulk Operations**: Test with various selection sizes
+- **Theme Switching**: Test theme persistence and transitions
+- **Keyboard Navigation**: Comprehensive accessibility testing
+- **Offline Functionality**: Test offline/online transitions
+- **Import/Export**: Test various file formats and edge cases
+- **Analytics Accuracy**: Verify metric calculations
